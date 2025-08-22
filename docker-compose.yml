@@ -1,0 +1,49 @@
+version: '3.9'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: helpdesk-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_DATABASE: helpdesk
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./backend/scripts/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+
+  backend:
+    build: ./backend
+    container_name: helpdesk-backend
+    restart: unless-stopped
+    environment:
+      - MONGO_URL=mongodb://admin:password@mongodb:27017/helpdesk?authSource=admin
+      - JWT_SECRET=change-me-in-prod
+      - PORT=3000
+      - STUB_MODE=true
+      - AUTO_CLOSE_ENABLED=true
+      - CONFIDENCE_THRESHOLD=0.78
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mongodb
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  frontend:
+    build: ./frontend
+    container_name: helpdesk-frontend
+    restart: unless-stopped
+    environment:
+      - VITE_API_BASE_URL=http://localhost:3000
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  mongodb_data:
